@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -34,11 +34,11 @@
             font-family: 'Inter', sans-serif;
             margin: 0;
             display: flex;
-            align-items: center;
+            align-items: flex-start; /* Geändert von center auf flex-start für Anzeige oben */
             justify-content: center;
             min-height: 100vh;
             background-color: #f3f4f6; /* Hellgrau */
-            padding: 1rem;
+            padding: 2rem 1rem; /* Oben etwas mehr Abstand (2rem) */
             color: #4b5563; /* Dunkle Textfarbe für den hellen Hintergrund */
         }
     </style>
@@ -46,8 +46,7 @@
 <body>
 
     <div class="bg-white rounded-xl shadow-md w-full max-w-xs p-2 space-y-1 border-2 border-blue-500">
-        <h1 class="text-lg font-bold text-start text-gray-800">
-            Timer
+        <h1 class="text-lg font-bold text-center text-gray-800"> Timer
         </h1>
         
         <div class="space-y-1">
@@ -480,6 +479,8 @@
     </script>
 </body>
 </html>
+
+
 
 
 
