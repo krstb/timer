@@ -343,7 +343,10 @@
                 const elapsedSeconds = Math.max(0, Math.floor(timeDifference / 1000));
                 const remainingSeconds = totalWorkDurationSeconds - (elapsedSeconds - pauseSeconds);
                 
+                const isStarted = timeDifference >= 0;
+
                 if (remainingSeconds <= 0) {
+                    // ... (deine UI-Klassen-Änderungen bleiben gleich)
                     remainingTimeContainer.classList.remove('bg-red-50', 'border-red-200');
                     remainingTimeContainer.classList.add('bg-green-50', 'border-green-200');
                     remainingTimeDisplay.classList.remove('text-red-700');
@@ -353,16 +356,21 @@
 
                     remainingTimeTitle.textContent = `Geleistete Arbeitszeit (8h ${breakMinutes}min)`;
                     remainingTimeLabel.textContent = "Erbrachte Arbeitszeit:";
-                    
                     const actualWorkTimeSeconds = elapsedSeconds - totalBreakSeconds - pauseSeconds;
                     remainingTimeDisplay.textContent = formatTime(Math.max(0, actualWorkTimeSeconds));
-                    
-                    if (!highTonePlayed) {
+
+                    // --- KORREKTUR: Ton nur abspielen, wenn das Ende gerade erst erreicht wurde ---
+                    // Wir prüfen, ob remainingSeconds fast 0 ist (zwischen -1 und 0)
+                    if (!highTonePlayed && isStarted && remainingSeconds > -2) {
                         playToneThrice(880, false);
+                        highTonePlayed = true; 
+                    } else if (remainingSeconds <= -2) {
+                        // Wenn wir schon weit in der Vergangenheit sind, Ton als "gespielt" markieren
                         highTonePlayed = true; 
                     }
 
                 } else {
+                    // ... (deine UI-Klassen-Änderungen bleiben gleich)
                     remainingTimeContainer.classList.remove('bg-green-50', 'border-green-200');
                     remainingTimeContainer.classList.add('bg-red-50', 'border-red-200');
                     remainingTimeDisplay.classList.remove('text-green-700');
@@ -378,9 +386,14 @@
                 }
                 
                 const actualWorkTimeSeconds = elapsedSeconds - totalBreakSeconds - pauseSeconds;
-                if (actualWorkTimeSeconds >= fullTimeReachedSeconds && !lowTonePlayed) {
+                
+                // --- KORREKTUR: Tiefer Ton ebenfalls nur bei "Punktlandung" ---
+                const fullTimeDiff = actualWorkTimeSeconds - fullTimeReachedSeconds;
+                if (fullTimeDiff >= 0 && !lowTonePlayed && isStarted && fullTimeDiff < 2) {
                     playToneThrice(330, true);
                     lowTonePlayed = true; 
+                } else if (fullTimeDiff >= 2) {
+                    lowTonePlayed = true; // Ton überspringen, da Zeit schon lange vorbei
                 } else if (actualWorkTimeSeconds < fullTimeReachedSeconds) {
                     lowTonePlayed = false;
                 }
