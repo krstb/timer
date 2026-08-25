@@ -108,10 +108,16 @@
         <hr class="border-t-2 border-gray-200 my-2" />
         
         <div class="space-y-1">
-            <h2 class="text-md font-bold text-center text-gray-800">Endzeit</h2>
-            <div class="bg-purple-800 border border-purple-600 p-2 rounded-lg text-center shadow-sm">
-                <p class="text-white font-semibold text-xs">Endzeit:</p>
-                <p id="end-time-display" class="text-xl text-white font-mono font-bold">--:--</p>
+            <h2 class="text-md font-bold text-center text-gray-800">Endzeiten</h2>
+            <div class="space-y-1">
+                <div class="bg-purple-50 border border-purple-200 p-2 rounded-lg text-center shadow-sm">
+                    <p class="text-purple-600 font-semibold text-xs">Endzeit (regulär nach 8h):</p>
+                    <p id="end-time-display" class="text-xl text-purple-700 font-mono font-bold">--:--</p>
+                </div>
+                <div class="bg-orange-50 border border-orange-200 p-2 rounded-lg text-center shadow-sm">
+                    <p class="text-orange-600 font-semibold text-xs">Endzeit bei maximaler Arbeitszeit (10h):</p>
+                    <p id="max-end-time-display" class="text-xl text-orange-700 font-mono font-bold">--:--</p>
+                </div>
             </div>
         </div>
         
@@ -135,6 +141,7 @@
         const toggleDisplayButton = document.getElementById('toggle-display-button');
         const displayFieldsContainer = document.getElementById('display-fields-container');
         const endTimeDisplay = document.getElementById('end-time-display');
+        const maxEndTimeDisplay = document.getElementById('max-end-time-display');
         const elapsedLabel = document.getElementById('elapsed-label');
         const pauseTimeInput = document.getElementById('pause-time-input');
         const maxLimitContainer = document.getElementById('max-limit-container');
@@ -217,13 +224,20 @@
             return formatter.format(date).replace(',', '');
         };
 
-        // --- Funktion zum Aktualisieren der Endzeit ---
+        // --- Funktion zum Aktualisieren der Endzeiten (Regulär & Maximal) ---
         const updateEndTimeDisplay = () => {
             if (startTime) {
+                // Reguläre Endzeit (8h Arbeit + Pause)
                 const endTime = new Date(startTime.getTime() + totalWorkDurationSeconds * 1000 + pauseSeconds * 1000);
                 endTimeDisplay.textContent = formatDateTimeForDisplay(endTime);
+
+                // Maximale Endzeit (10h Netto-Arbeit + Pause + Pflichtpause)
+                const maxWorkSeconds = 10 * 3600;
+                const maxEndTime = new Date(startTime.getTime() + maxWorkSeconds * 1000 + totalBreakSeconds * 1000 + pauseSeconds * 1000);
+                maxEndTimeDisplay.textContent = formatDateTimeForDisplay(maxEndTime);
             } else {
                 endTimeDisplay.textContent = '--:--';
+                maxEndTimeDisplay.textContent = '--:--';
             }
         };
 
@@ -304,12 +318,11 @@
 
         function playTone(frequency = 430, isLowTone = false) {
             const oscillator = audioContext.createOscillator();
-            const noteGain = audioContext.createGain(); // Eigener Lautstärkeregler für Sanftanlauf
+            const noteGain = audioContext.createGain(); 
 
             oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
 
-            // Fade-In (0 bis 15ms): Verhindert Knacken und Verschlucken
             const now = audioContext.currentTime;
             noteGain.gain.setValueAtTime(0, now);
             noteGain.gain.linearRampToValueAtTime(1, now + 0.015);
@@ -322,13 +335,12 @@
             }
 
             oscillator.start(now);
-            oscillator.stop(now + 0.5); // 0,5 Sek. Tonlänge
+            oscillator.stop(now + 0.5); 
         }
 
         async function playToneThrice(frequency, isLowTone = false) {
             await ensureAudioContext();
             
-            // 5 Wiederholungen mit 100ms Anlaufpuffer
             setTimeout(() => playTone(frequency, isLowTone), 100);
             setTimeout(() => playTone(frequency, isLowTone), 800);
             setTimeout(() => playTone(frequency, isLowTone), 1500);
@@ -396,7 +408,6 @@
                         maxLimitDisplay.classList.add('text-red-600');
                     }   
 
-                    // --- Tiefer Ton (430 Hz) bei 8 Stunden reine Arbeitszeit ---
                     if (!highTonePlayed && isStarted && remainingSeconds > -2) {
                         playToneThrice(430, true);
                         highTonePlayed = true; 
@@ -422,7 +433,6 @@
                 
                 const actualWorkTimeSeconds = elapsedSeconds - totalBreakSeconds - pauseSeconds;
                 
-                // --- Hoher Ton (880 Hz) bei 9,75 Stunden Netto-Arbeitszeit ---
                 const fullTimeDiff = actualWorkTimeSeconds - (9.75 * 3600);
                 if (fullTimeDiff >= 0 && !lowTonePlayed && isStarted && fullTimeDiff < 2) {
                     playToneThrice(880, false);
