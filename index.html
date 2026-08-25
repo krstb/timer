@@ -27,31 +27,30 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
-        
         /* Fix für PWA-Ränder und den blauen Balken */
-        html {background-color: #000000 !important;
-              overscroll-behavior-y: none;
+        html {
+            background-color: #000000 !important;
+            overscroll-behavior-y: none;
         }
 
-        /* Zusätzliche Stile für die App-Zentrierung */
-        body {background-color: #EA6B0A;
+        /* App-Zentrierung */
+        body {
+            background-color: #EA6B0A;
             font-family: 'Inter', sans-serif;
             margin: 0;
             display: flex;
-            align-items: flex-start; /* Geändert von center auf flex-start für Anzeige oben */
+            align-items: flex-start;
             justify-content: center;
             min-height: 100vh;
-            background-color: #EA6B0A; /* Hellgrau */
-            padding: 2rem 1rem; /* Oben etwas mehr Abstand (2rem) */
-            color: #4b5563; /* Dunkle Textfarbe für den hellen Hintergrund */
+            padding: 2rem 1rem;
+            color: #4b5563;
         }
     </style>
 </head>
 <body>
 
     <div class="bg-white rounded-xl shadow-md w-full max-w-sm p-2 space-y-1 border-2 border-gray-400">
-        <h1 class="text-lg font-bold text-center text-gray-800"> Timer
-        </h1>
+        <h1 class="text-lg font-bold text-center text-gray-800"> Timer </h1>
         
         <div class="space-y-1">
             <div class="flex space-x-2">
@@ -74,14 +73,14 @@
                     <input type="datetime-local" id="start-time-picker" class="hidden">
                 </div>
             </div>
-
-            <div class="bg-yellow-50 border border-yellow-200 p-2 rounded-lg text-center shadow-sm">
-                <p class="text-yellow-600 font-semibold text-xs">Pause (Minuten):</p>
-                <input type="number" id="pause-time-input" placeholder="z.B. 30 oder -15"
-                       class="w-full p-2 border-2 border-gray-300 rounded-lg text-lg font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white text-gray-900">
-            </div>
             
             <div id="display-fields-container" class="space-y-1 hidden">
+                <div class="bg-yellow-50 border border-yellow-200 p-2 rounded-lg text-center shadow-sm">
+                    <p class="text-yellow-600 font-semibold text-xs">Pause (Minuten):</p>
+                    <input type="number" id="pause-time-input" placeholder="z.B. 30 oder -15"
+                           class="w-full p-2 border-2 border-gray-300 rounded-lg text-lg font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white text-gray-900">
+                </div>
+
                 <div class="bg-green-50 border border-green-200 p-2 rounded-lg text-center shadow-sm">
                     <p class="text-green-600 font-semibold text-xs">Aktuelle Zeit (System):</p>
                     <p id="system-time-display" class="text-xl text-green-700 font-mono font-bold">--:--:--</p>
@@ -97,6 +96,10 @@
                     <div class="bg-red-50 border border-red-200 p-2 rounded-lg text-center shadow-sm">
                         <p class="text-red-600 font-semibold text-xs">Verbleibende Zeit:</p>
                         <p id="remaining-time-display" class="text-xl text-red-700 font-mono font-bold">00:00:00</p>
+                    </div>
+                    <div id="max-limit-container" class="bg-orange-50 border border-orange-200 p-2 rounded-lg text-center shadow-sm hidden">
+                        <p id="max-limit-label" class="text-orange-600 font-semibold text-xs">Restzeit bis 10 Std. Max-Arbeitszeit:</p>
+                        <p id="max-limit-display" class="text-xl text-orange-700 font-mono font-bold">00:00:00</p>
                     </div>
                 </div>
             </div>
@@ -134,6 +137,9 @@
         const endTimeDisplay = document.getElementById('end-time-display');
         const elapsedLabel = document.getElementById('elapsed-label');
         const pauseTimeInput = document.getElementById('pause-time-input');
+        const maxLimitContainer = document.getElementById('max-limit-container');
+        const maxLimitLabel = document.getElementById('max-limit-label');
+        const maxLimitDisplay = document.getElementById('max-limit-display');
 
         // --- Globale Variablen für App-Daten ---
         let startTime = null;
@@ -150,7 +156,7 @@
         let highTonePlayed = false;
         let lowTonePlayed = false;
 
-        // ** Funktion zum dynamischen Einstellen der Arbeits- und Pausenzeiten **
+        // ** Korrigierte Funktion für Pausenzeit-Automatik **
         const updateWorkDurations = (date) => {
             let breakMinutes = 45; // Standard: 45 Minuten
 
@@ -158,17 +164,16 @@
                 const startHour = date.getHours();
                 const startMinute = date.getMinutes();
                 
-                // ** KORRIGIERTE BEDINGUNG **
-                // Bedingung: nach 9:30 Uhr (Stunde > 9 ODER (Stunde == 9 UND Minute > 30))
-                if (startHour > 9 || (startHour === 9 && startMinute > 30)) {
-                    breakMinutes = 30; // Ausnahme: 30 Minuten
+                // Greift NUR tagsüber zwischen 09:31 Uhr und 22:59 Uhr.
+                // Vormittags bis 09:30 Uhr und Nachtschichten (ab 23:00 Uhr) bleiben bei 45 Min.
+                if ((startHour === 9 && startMinute > 30) || (startHour > 9 && startHour < 23)) {
+                    breakMinutes = 30; 
                 }
             }
             
             // Globale Variablen basierend auf der Pausenzeit setzen
             totalBreakSeconds = breakMinutes * 60; 
             totalWorkDurationSeconds = (8 * 60 + breakMinutes) * 60; 
-            fullTimeReachedSeconds = (9 * 60 + breakMinutes) * 60; 
             
             // UI-Texte sofort aktualisieren
             remainingTimeTitle.textContent = `Verbleibende Arbeitszeit (8h ${breakMinutes}min)`;
@@ -178,9 +183,7 @@
         // --- Hilfsfunktion zum Parsen der manuellen Eingabe (TT.MM.JJJJ, HH:MM) ---
         const parseDateTimeString = (input) => {
             const parts = input.match(/^(\d{2})\.(\d{2})\.(\d{4}), (\d{2}):(\d{2})$/);
-            if (!parts) {
-                return null;
-            }
+            if (!parts) return null;
             const [, day, month, year, hour, minute] = parts;
             const date = new Date(year, month - 1, day, hour, minute);
             if (date.getFullYear() != year || date.getMonth() != month - 1 || date.getDate() != day) {
@@ -189,7 +192,7 @@
             return date;
         };
 
-        // --- Hilfsfunktion zum Formatieren der Zeit für die Eingabefelder (TT.MM.JJJJ, HH:MM) ---
+        // --- Hilfsfunktion zum Formatieren der Zeit für die Eingabefelder ---
         const formatForInput = (date) => {
             const pad = (num) => String(num).padStart(2, '0');
             const day = pad(date.getDate());
@@ -200,7 +203,7 @@
             return `${day}.${month}.${year}, ${hour}:${minute}`;
         };
         
-        // --- Hilfsfunktion zur Anzeige von Datum und Uhrzeit (DD.MM.YYYY HH:MM) ---
+        // --- Hilfsfunktion zur Anzeige von Datum und Uhrzeit ---
         const formatDateTimeForDisplay = (date) => {
             if (!date) return '--:--';
             const formatter = new Intl.DateTimeFormat('de-DE', {
@@ -224,7 +227,7 @@
             }
         };
 
-        // --- Daten aus dem lokalen Speicher laden und UI aktualisieren ---
+        // --- Daten aus dem lokalen Speicher laden ---
         const loadData = () => {
             const storedTime = localStorage.getItem(localStorageKey);
             if (storedTime) {
@@ -250,7 +253,6 @@
             updateEndTimeDisplay();
         };
         
-        // --- Funktion zum Leeren der Pausenzeit ---
         const clearPause = () => {
              pauseTimeInput.value = '';
              localStorage.removeItem(localStoragePauseKey);
@@ -258,7 +260,6 @@
              updateEndTimeDisplay();
         };
 
-        // --- Funktion zum Speichern von Daten im lokalen Speicher ---
         const saveData = (date) => {
             if (date && !isNaN(date.getTime())) {
                 localStorage.setItem(localStorageKey, date.toISOString());
@@ -270,7 +271,6 @@
             lowTonePlayed = false;
         };
 
-        // --- Funktion zum Anzeigen eines temporären Erfolgs-Feedbacks ---
         const showSuccessFeedback = (button) => {
             const originalText = button.textContent;
             button.textContent = 'Erfolgreich! ✅';
@@ -283,12 +283,12 @@
             }, 1000);
         };
         
-        // **Tone-Generator-Funktionen**
+        // ** Tone-Generator-Funktionen (mit 15ms Sanftanlauf & 5 Wiederholungen) **
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const masterGainNode = audioContext.createGain();
         masterGainNode.connect(audioContext.destination);
         masterGainNode.gain.value = 0.5;
-        
+
         const lowGainNode = audioContext.createGain();
         const highGainNode = audioContext.createGain();
         lowGainNode.gain.value = 2.5; 
@@ -296,25 +296,44 @@
         lowGainNode.connect(masterGainNode);
         highGainNode.connect(masterGainNode);
 
-        function playTone(frequency = 440, isLowTone = false) {
-            const oscillator = audioContext.createOscillator();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-            
-            if (isLowTone) {
-                oscillator.connect(lowGainNode);
-            } else {
-                oscillator.connect(highGainNode);
+        async function ensureAudioContext() {
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
             }
-
-            oscillator.start(0);
-            oscillator.stop(audioContext.currentTime + 0.2); 
         }
 
-        function playToneThrice(frequency, isLowTone = false) {
-            playTone(frequency, isLowTone);
-            setTimeout(() => playTone(frequency, isLowTone), 400);
+        function playTone(frequency = 430, isLowTone = false) {
+            const oscillator = audioContext.createOscillator();
+            const noteGain = audioContext.createGain(); // Eigener Lautstärkeregler für Sanftanlauf
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+            // Fade-In (0 bis 15ms): Verhindert Knacken und Verschlucken
+            const now = audioContext.currentTime;
+            noteGain.gain.setValueAtTime(0, now);
+            noteGain.gain.linearRampToValueAtTime(1, now + 0.015);
+
+            oscillator.connect(noteGain);
+            if (isLowTone) {
+                noteGain.connect(lowGainNode);
+            } else {
+                noteGain.connect(highGainNode);
+            }
+
+            oscillator.start(now);
+            oscillator.stop(now + 0.5); // 0,5 Sek. Tonlänge
+        }
+
+        async function playToneThrice(frequency, isLowTone = false) {
+            await ensureAudioContext();
+            
+            // 5 Wiederholungen mit 100ms Anlaufpuffer
+            setTimeout(() => playTone(frequency, isLowTone), 100);
             setTimeout(() => playTone(frequency, isLowTone), 800);
+            setTimeout(() => playTone(frequency, isLowTone), 1500);
+            setTimeout(() => playTone(frequency, isLowTone), 2200);
+            setTimeout(() => playTone(frequency, isLowTone), 2900);
         }
 
         // --- Logik für die Echtzeit-Timer-Berechnung ---
@@ -329,6 +348,7 @@
             systemTimeDisplay.textContent = formatter.format(now_date);
             
             const breakMinutes = totalBreakSeconds / 60;
+            fullTimeReachedSeconds = (9.75 * 60) * 60 + totalBreakSeconds + pauseSeconds;
 
             if (startTime) {
                 const startMillis = startTime.getTime();
@@ -344,16 +364,14 @@
 
                 const elapsedSeconds = Math.max(0, Math.floor(timeDifference / 1000));
                 const remainingSeconds = totalWorkDurationSeconds - (elapsedSeconds - pauseSeconds);
-                
                 const isStarted = timeDifference >= 0;
 
                 if (remainingSeconds <= 0) {
-                    // ... (deine UI-Klassen-Änderungen bleiben gleich)
                     remainingTimeContainer.classList.remove('bg-red-50', 'border-red-200');
                     remainingTimeContainer.classList.add('bg-green-50', 'border-green-200');
                     remainingTimeDisplay.classList.remove('text-red-700');
                     remainingTimeDisplay.classList.add('text-green-700');
-                    remainingTimeLabel.classList.remove('text-green-600');
+                    remainingTimeLabel.classList.remove('text-red-600');
                     remainingTimeLabel.classList.add('text-green-600');
 
                     remainingTimeTitle.textContent = `Geleistete Arbeitszeit (8h ${breakMinutes}min)`;
@@ -361,18 +379,32 @@
                     const actualWorkTimeSeconds = elapsedSeconds - totalBreakSeconds - pauseSeconds;
                     remainingTimeDisplay.textContent = formatTime(Math.max(0, actualWorkTimeSeconds));
 
-                    // --- KORREKTUR: Ton nur abspielen, wenn das Ende gerade erst erreicht wurde ---
-                    // Wir prüfen, ob remainingSeconds fast 0 ist (zwischen -1 und 0)
+                    maxLimitContainer.classList.remove('hidden');
+                    const maxWorkSeconds = 10 * 3600;
+                    const remainingToMax = maxWorkSeconds - actualWorkTimeSeconds;
+
+                    if (remainingToMax > 0) {
+                        maxLimitLabel.textContent = "Restzeit bis 10 Std. Max-Arbeitszeit:";
+                        maxLimitDisplay.textContent = formatTime(remainingToMax);
+                        maxLimitDisplay.classList.remove('text-red-600');
+                        maxLimitDisplay.classList.add('text-orange-700');
+                    } else {
+                        const exceededSeconds = Math.abs(remainingToMax);
+                        maxLimitLabel.textContent = "Maximale Arbeitszeit überschritten um:";
+                        maxLimitDisplay.textContent = formatTime(exceededSeconds);
+                        maxLimitDisplay.classList.remove('text-orange-700');
+                        maxLimitDisplay.classList.add('text-red-600');
+                    }   
+
+                    // --- Tiefer Ton (430 Hz) bei 8 Stunden reine Arbeitszeit ---
                     if (!highTonePlayed && isStarted && remainingSeconds > -2) {
-                        playToneThrice(880, false);
+                        playToneThrice(430, true);
                         highTonePlayed = true; 
                     } else if (remainingSeconds <= -2) {
-                        // Wenn wir schon weit in der Vergangenheit sind, Ton als "gespielt" markieren
                         highTonePlayed = true; 
                     }
 
                 } else {
-                    // ... (deine UI-Klassen-Änderungen bleiben gleich)
                     remainingTimeContainer.classList.remove('bg-green-50', 'border-green-200');
                     remainingTimeContainer.classList.add('bg-red-50', 'border-red-200');
                     remainingTimeDisplay.classList.remove('text-green-700');
@@ -385,18 +417,19 @@
 
                     remainingTimeDisplay.textContent = formatTime(remainingSeconds);
                     highTonePlayed = false;
+                    maxLimitContainer.classList.add('hidden');
                 }
                 
                 const actualWorkTimeSeconds = elapsedSeconds - totalBreakSeconds - pauseSeconds;
                 
-                // --- KORREKTUR: Tiefer Ton ebenfalls nur bei "Punktlandung" ---
-                const fullTimeDiff = actualWorkTimeSeconds - fullTimeReachedSeconds;
+                // --- Hoher Ton (880 Hz) bei 9,75 Stunden Netto-Arbeitszeit ---
+                const fullTimeDiff = actualWorkTimeSeconds - (9.75 * 3600);
                 if (fullTimeDiff >= 0 && !lowTonePlayed && isStarted && fullTimeDiff < 2) {
-                    playToneThrice(330, true);
+                    playToneThrice(880, false);
                     lowTonePlayed = true; 
                 } else if (fullTimeDiff >= 2) {
-                    lowTonePlayed = true; // Ton überspringen, da Zeit schon lange vorbei
-                } else if (actualWorkTimeSeconds < fullTimeReachedSeconds) {
+                    lowTonePlayed = true; 
+                } else if (actualWorkTimeSeconds < (9.75 * 3600)) {
                     lowTonePlayed = false;
                 }
                 
@@ -414,10 +447,11 @@
                 elapsedLabel.textContent = "Vergangene Zeit:";
                 elapsedTimeDisplay.textContent = '00:00:00';
                 remainingTimeDisplay.textContent = formatTime(totalWorkDurationSeconds);
+                maxLimitContainer.classList.add('hidden');
             }
         }, 1000);
 
-        // --- Event-Listener für das "Aktuelle Zeit setzen" Knopf ---
+        // --- Event-Listener ---
         setTimeButton.addEventListener('click', () => {
             startTimeInputText.classList.remove('border-red-500', 'focus:ring-red-500');
             startTimeInputText.classList.add('border-gray-300', 'focus:ring-blue-500');
@@ -427,10 +461,8 @@
             showSuccessFeedback(setTimeButton);
         });
 
-        // --- Event-Listener für das manuelle Startzeit-Feld (mit Fehlerbehandlung) ---
         startTimeInputText.addEventListener('input', () => {
             const inputValue = startTimeInputText.value.trim();
-            
             if (inputValue === '') {
                 saveData(null); 
                 clearPause();
@@ -440,7 +472,6 @@
             }
 
             const manualDate = parseDateTimeString(inputValue);
-            
             if (manualDate && !isNaN(manualDate.getTime())) {
                 saveData(manualDate); 
                 startTimeInputText.classList.remove('border-red-500', 'focus:ring-red-500');
@@ -451,7 +482,6 @@
             }
         });
 
-        // --- Event-Listener für den nativen Picker
         startTimeInputPicker.addEventListener('change', () => {
             const pickerDate = new Date(startTimeInputPicker.value);
             if (pickerDate && !isNaN(pickerDate.getTime())) {
@@ -459,12 +489,10 @@
             }
         });
         
-        // --- Öffnet den nativen Picker, wenn der Button oder das Feld geklickt wird
         openPickerButton.addEventListener('click', () => {
             startTimeInputPicker.showPicker();
         });
         
-        // --- Event-Listener für das Pausen-Feld ---
         pauseTimeInput.addEventListener('input', () => {
              const minutes = parseInt(pauseTimeInput.value, 10);
              if (!isNaN(minutes)) {
@@ -477,12 +505,10 @@
              updateEndTimeDisplay(); 
         });
 
-        // --- Event-Listener für den neuen Ein-/Ausblenden-Button ---
         toggleDisplayButton.addEventListener('click', () => {
             displayFieldsContainer.classList.toggle('hidden');
         });
 
-        // --- Hilfsfunktion zum Formatieren von Sekunden in HH:MM:SS ---
         const formatTime = (totalSeconds) => {
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -491,33 +517,7 @@
             return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
         };
 
-        // --- App starten ---
         window.onload = loadData; 
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
