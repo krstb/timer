@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -16,7 +15,6 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     
     <script>
-      // Service Worker Registrierung
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('sw.js')
@@ -28,13 +26,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
-        /* Fix für PWA-Ränder und den blauen Balken */
         html {
             background-color: #000000 !important;
             overscroll-behavior-y: none;
         }
 
-        /* App-Zentrierung */
         body {
             background-color: #EA6B0A;
             font-family: 'Inter', sans-serif;
@@ -45,6 +41,10 @@
             min-height: 100vh;
             padding: 1rem 0.5rem;
             color: #4b5563;
+        }
+
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
         }
     </style>
 </head>
@@ -63,16 +63,11 @@
                 </button>
             </div>
 
+            <!-- Eingabefeld im Countdown-Stil ohne Voreinstellungen -->
             <div class="bg-gray-50 border border-gray-200 px-2 py-1 rounded-lg text-center shadow-sm">
                 <p class="text-gray-500 font-semibold text-[11px]">Startzeit:</p>
-                <div class="relative flex items-center">
-                    <input type="text" id="start-time-text" placeholder="TT.MM.JJJJ, HH:MM"
-                           class="w-full py-1 px-2 border-2 border-gray-300 rounded-lg text-base font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 pr-8 transition-colors">
-                    <button id="open-picker-button" class="absolute right-2 text-gray-400 hover:text-gray-600 transition-colors">
-                        <i class="fas fa-calendar-alt"></i>
-                    </button>
-                    <input type="datetime-local" id="start-time-picker" class="hidden">
-                </div>
+                <input type="datetime-local" id="start-time-input"
+                       class="w-full py-1 px-2 border-2 border-gray-300 rounded-lg text-base font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 transition-colors">
             </div>
             
             <div id="display-fields-container" class="space-y-1 hidden">
@@ -129,9 +124,7 @@
     
     <script>
         // --- DOM-Elemente abrufen ---
-        const startTimeInputText = document.getElementById('start-time-text');
-        const startTimeInputPicker = document.getElementById('start-time-picker');
-        const openPickerButton = document.getElementById('open-picker-button');
+        const startTimeInput = document.getElementById('start-time-input');
         const elapsedTimeDisplay = document.getElementById('elapsed-time-display');
         const remainingTimeDisplay = document.getElementById('remaining-time-display');
         const remainingTimeContainer = remainingTimeDisplay.closest('.bg-red-50'); 
@@ -164,54 +157,36 @@
         let highTonePlayed = false;
         let lowTonePlayed = false;
 
-        // ** Korrigierte Funktion für Pausenzeit-Automatik **
+        const formatForDateTimeInput = (date) => {
+            if (!date) return '';
+            const pad = (num) => String(num).padStart(2, '0');
+            const year = date.getFullYear();
+            const month = pad(date.getMonth() + 1);
+            const day = pad(date.getDate());
+            const hours = pad(date.getHours());
+            const minutes = pad(date.getMinutes());
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        };
+
         const updateWorkDurations = (date) => {
-            let breakMinutes = 45; // Standard: 45 Minuten
+            let breakMinutes = 45;
 
             if (date) {
                 const startHour = date.getHours();
                 const startMinute = date.getMinutes();
                 
-                // Greift NUR tagsüber zwischen 09:31 Uhr und 22:59 Uhr.
-                // Vormittags bis 09:30 Uhr und Nachtschichten (ab 23:00 Uhr) bleiben bei 45 Min.
                 if ((startHour === 9 && startMinute > 30) || (startHour > 9 && startHour < 23)) {
                     breakMinutes = 30; 
                 }
             }
             
-            // Globale Variablen basierend auf der Pausenzeit setzen
             totalBreakSeconds = breakMinutes * 60; 
             totalWorkDurationSeconds = (8 * 60 + breakMinutes) * 60; 
             
-            // UI-Texte sofort aktualisieren
             remainingTimeTitle.textContent = `Verbleibende Arbeitszeit (8h ${breakMinutes}min)`;
             remainingTimeDisplay.textContent = formatTime(totalWorkDurationSeconds);
         };
 
-        // --- Hilfsfunktion zum Parsen der manuellen Eingabe (TT.MM.JJJJ, HH:MM) ---
-        const parseDateTimeString = (input) => {
-            const parts = input.match(/^(\d{2})\.(\d{2})\.(\d{4}), (\d{2}):(\d{2})$/);
-            if (!parts) return null;
-            const [, day, month, year, hour, minute] = parts;
-            const date = new Date(year, month - 1, day, hour, minute);
-            if (date.getFullYear() != year || date.getMonth() != month - 1 || date.getDate() != day) {
-                return null;
-            }
-            return date;
-        };
-
-        // --- Hilfsfunktion zum Formatieren der Zeit für die Eingabefelder ---
-        const formatForInput = (date) => {
-            const pad = (num) => String(num).padStart(2, '0');
-            const day = pad(date.getDate());
-            const month = pad(date.getMonth() + 1);
-            const year = date.getFullYear();
-            const hour = pad(date.getHours());
-            const minute = pad(date.getMinutes());
-            return `${day}.${month}.${year}, ${hour}:${minute}`;
-        };
-        
-        // --- Hilfsfunktion zur Anzeige von Datum und Uhrzeit ---
         const formatDateTimeForDisplay = (date) => {
             if (!date) return '--:--';
             const formatter = new Intl.DateTimeFormat('de-DE', {
@@ -225,14 +200,11 @@
             return formatter.format(date).replace(',', '');
         };
 
-        // --- Funktion zum Aktualisieren der Endzeiten (Regulär & Maximal) ---
         const updateEndTimeDisplay = () => {
             if (startTime) {
-                // Reguläre Endzeit (8h Arbeit + Pause)
                 const endTime = new Date(startTime.getTime() + totalWorkDurationSeconds * 1000 + pauseSeconds * 1000);
                 endTimeDisplay.textContent = formatDateTimeForDisplay(endTime);
 
-                // Maximale Endzeit (10h Netto-Arbeit + Pause + Pflichtpause)
                 const maxWorkSeconds = 10 * 3600;
                 const maxEndTime = new Date(startTime.getTime() + maxWorkSeconds * 1000 + totalBreakSeconds * 1000 + pauseSeconds * 1000);
                 maxEndTimeDisplay.textContent = formatDateTimeForDisplay(maxEndTime);
@@ -242,7 +214,6 @@
             }
         };
 
-        // --- Daten aus dem lokalen Speicher laden ---
         const loadData = () => {
             const storedTime = localStorage.getItem(localStorageKey);
             if (storedTime) {
@@ -253,8 +224,7 @@
 
             updateWorkDurations(startTime); 
             
-            startTimeInputText.value = startTime ? formatForInput(startTime) : '';
-            startTimeInputPicker.value = startTime ? startTime.toISOString().slice(0, 16) : '';
+            startTimeInput.value = startTime ? formatForDateTimeInput(startTime) : '';
 
             const storedPauseMinutes = localStorage.getItem(localStoragePauseKey);
             if (storedPauseMinutes) {
@@ -298,7 +268,7 @@
             }, 1000);
         };
         
-        // ** Tone-Generator-Funktionen (mit 15ms Sanftanlauf & 5 Wiederholungen) **
+        // --- Tone-Generator-Funktionen ---
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const masterGainNode = audioContext.createGain();
         masterGainNode.connect(audioContext.destination);
@@ -464,44 +434,23 @@
 
         // --- Event-Listener ---
         setTimeButton.addEventListener('click', () => {
-            startTimeInputText.classList.remove('border-red-500', 'focus:ring-red-500');
-            startTimeInputText.classList.add('border-gray-300', 'focus:ring-blue-500');
-
             saveData(new Date()); 
             clearPause();
             showSuccessFeedback(setTimeButton);
         });
 
-        startTimeInputText.addEventListener('input', () => {
-            const inputValue = startTimeInputText.value.trim();
-            if (inputValue === '') {
+        startTimeInput.addEventListener('input', () => {
+            const inputValue = startTimeInput.value;
+            if (!inputValue) {
                 saveData(null); 
                 clearPause();
-                startTimeInputText.classList.remove('border-red-500', 'focus:ring-red-500');
-                startTimeInputText.classList.add('border-gray-300', 'focus:ring-blue-500');
                 return;
             }
 
-            const manualDate = parseDateTimeString(inputValue);
-            if (manualDate && !isNaN(manualDate.getTime())) {
-                saveData(manualDate); 
-                startTimeInputText.classList.remove('border-red-500', 'focus:ring-red-500');
-                startTimeInputText.classList.add('border-gray-300', 'focus:ring-blue-500');
-            } else {
-                startTimeInputText.classList.add('border-red-500', 'focus:ring-red-500');
-                startTimeInputText.classList.remove('border-gray-300', 'focus:ring-blue-500');
+            const inputDate = new Date(inputValue);
+            if (!isNaN(inputDate.getTime())) {
+                saveData(inputDate); 
             }
-        });
-
-        startTimeInputPicker.addEventListener('change', () => {
-            const pickerDate = new Date(startTimeInputPicker.value);
-            if (pickerDate && !isNaN(pickerDate.getTime())) {
-                saveData(pickerDate); 
-            }
-        });
-        
-        openPickerButton.addEventListener('click', () => {
-            startTimeInputPicker.showPicker();
         });
         
         pauseTimeInput.addEventListener('input', () => {
